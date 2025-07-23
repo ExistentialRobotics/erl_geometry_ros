@@ -1,11 +1,10 @@
 message(STATUS "ROS1 activated, building ROS1 stuff")
 
-# node: gazebo_room_2d_node
-add_executable(gazebo_room_2d_node src/ros1/gazebo_room_2d_node.cpp)
-erl_target_dependencies(gazebo_room_2d_node)
-erl_collect_targets(EXECUTABLES gazebo_room_2d_node)
+file(GLOB_RECURSE ROS1_SOURCES src/ros1/*.cpp)
 
-# node: point_cloud_node
-add_executable(point_cloud_node src/ros1/point_cloud_node.cpp)
-erl_target_dependencies(point_cloud_node)
-erl_collect_targets(EXECUTABLES point_cloud_node)
+foreach (src_file IN LISTS ROS1_SOURCES)
+    get_filename_component(name ${src_file} NAME_WE)
+    add_executable(${name} ${src_file})
+    erl_target_dependencies(${name})
+    erl_collect_targets(EXECUTABLES ${name})
+endforeach ()

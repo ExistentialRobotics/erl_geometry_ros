@@ -57,6 +57,11 @@ public:
         m_msg_path_.header.frame_id = map_frame;        // reference frame for the path
 
         // Load data
+        if (!std::filesystem::exists(data_folder)) {
+            ROS_FATAL("Data folder '%s' does not exist.", data_folder.c_str());
+            ros::shutdown();
+            return;
+        }
         m_data_loader_ = std::make_unique<GazeboRoom2D::TrainDataLoader>(data_folder);
         m_msg_path_.poses.reserve(m_data_loader_->size());
         // Initialize the node
