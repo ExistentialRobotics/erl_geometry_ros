@@ -7,7 +7,9 @@ RUN cp /etc/apt/sources.list /etc/apt/sources.list.backup &&\
     sed -i "s|http://archive.ubuntu.com/ubuntu/|$APT_MIRROR|g" /etc/apt/sources.list; \
     fi
 RUN DEBIAN_FRONTEND=noninteractive apt update -y
-RUN DEBIAN_FRONTEND=noninteractive apt install -y ubuntu-desktop-minimal
+RUN DEBIAN_FRONTEND=noninteractive apt install -y mesa-utils \
+    libgl1-mesa-glx \
+    x11-apps
 RUN DEBIAN_FRONTEND=noninteractive apt install -y \
     software-properties-common lsb-release vim locales apt-utils ca-certificates curl iproute2
 
