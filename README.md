@@ -160,6 +160,8 @@ ros2 launch erl_geometry_ros cow_and_lady_launch.py
 - `cow_and_lady_bag`: Path to the dataset bag file
 - `gt_point_cloud_file`: Path to the ground truth point cloud file
 
+To run with ROS2, you need to first convert the bag file to a ROS2 compatible format. We provide a [tool](https://github.com/ExistentialRobotics/erl_common_ros/scripts/convert_rosbag_1to2.bash) for this conversion.
+
 ### 3. Point Cloud Publishing
 
 To publish a point cloud from a file:

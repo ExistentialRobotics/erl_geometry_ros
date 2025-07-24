@@ -15,7 +15,7 @@ def generate_launch_description():
     cow_and_lady_bag_arg = DeclareLaunchArgument(
         "cow_and_lady_bag",
         default_value=os.path.expanduser("~/Data/CowAndLady/ros2_bag"),
-        description="Path to the cow and lady bag file",
+        description="Path to the cow and lady bag directory",
     )
     gt_point_cloud_file_arg = DeclareLaunchArgument(
         "gt_point_cloud_file",
