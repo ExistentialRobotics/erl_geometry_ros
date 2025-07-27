@@ -16,21 +16,27 @@
 - **ROS Support**: Compatible with both ROS1 and ROS2
 - **Visualization**: Pre-configured RViz configurations for data visualization
 
-## Installation
+## Getting Started
 
+### Create Workspace
+
+```bash
+mkdir -p <your_workspace>/src && \
+vcs import --input https://raw.githubusercontent.com/ExistentialRobotics/erl_geometry/refs/heads/main/erl_geometry_msgs.repos <your_workspace>/src
+```
 ### Prerequisites
 
 - ROS1 Noetic or ROS2 Humble
 - C++17 compatible compiler
-- CMake 3.16 or higher
+- CMake 3.24 or higher
 
 ### Dependencies
 
 This package depends on the following ERL packages:
+- `erl_cmake_tools`
 - `erl_common`
 - `erl_covariance`
 - `erl_geometry`
-- `erl_cmake_tools`
 
 Standard ROS dependencies:
 - `geometry_msgs`
@@ -39,49 +45,34 @@ Standard ROS dependencies:
 - `tf2_ros`
 - `std_msgs`
 
-### Building from Source
+```bash
+# Ubuntu 20.04
+wget -qO - https://raw.githubusercontent.com/ExistentialRobotics/erl_common/refs/heads/main/scripts/setup_ubuntu_20.04.bash | bash
+wget -qO - https://raw.githubusercontent.com/ExistentialRobotics/erl_geometry/refs/heads/main/scripts/setup_ubuntu_20.04.bash | bash
+# Ubuntu 22.04, 24.04
+wget -qO - https://raw.githubusercontent.com/ExistentialRobotics/erl_common/refs/heads/main/scripts/setup_ubuntu_22.04_24.04.bash | bash
+wget -qO - https://raw.githubusercontent.com/ExistentialRobotics/erl_geometry/refs/heads/main/scripts/setup_ubuntu_22.04_24.04.bash | bash
+```
 
-1. **Clone the repository** into your ROS workspace:
-   ```bash
-   cd ~/catkin_ws/src  # For ROS1
-   # or
-   cd ~/ros2_ws/src    # For ROS2
+### Docker Option
 
-   git clone https://github.com/ExistentialRobotics/erl_geometry_ros.git
-   git clone https://github.com/ExistentialRobotics/erl_geometry.git
-   git clone https://github.com/ExistentialRobotics/erl_covariance.git
-   git clone https://github.com/ExistentialRobotics/erl_common.git
-   git clone https://github.com/ExistentialRobotics/erl_cmake_tools.git
-   ```
+The easiest way to get started is to use the provided [Docker files](./docker), which contains all dependencies.
 
-2. **Install dependencies**:
-   ```bash
-   rosdep install --from-paths . --ignore-src -r -y
-   ```
+### Building the Package
 
-3. **Build the package**:
-   ```bash
-   # For ROS1
-   cd ~/catkin_ws
-   catkin build --verbose erl_geometry_ros
-
-   # For ROS2
-   cd ~/ros2_ws
-   colcon build --packages-up-to erl_geometry_ros
-   ```
-
-4. **Source the workspace**:
-   ```bash
-   # For ROS1
-   source ~/catkin_ws/devel/setup.bash
-
-   # For ROS2
-   source ~/ros2_ws/install/setup.bash
-   ```
+```bash
+cd <your_workspace>
+# for ROS1
+catkin build erl_geometry_ros
+source devel/setup.bash
+# for ROS2
+colcon build --packages-up-to erl_geometry_ros
+source install/setup.bash
+```
 
 ## Available Nodes
 
-### 1. `gazebo_room_2d_node`
+### `gazebo_room_2d_node`
 
 Publishes synthetic 2D laser scan data from pre-recorded Gazebo simulation data.
 
@@ -97,7 +88,7 @@ Publishes synthetic 2D laser scan data from pre-recorded Gazebo simulation data.
 - `topic_name` (string): Laser scan topic name (default: "scan")
 - `publish_rate` (double): Publishing frequency in Hz (default: 100.0)
 
-### 2. `point_cloud_node`
+### `point_cloud_node`
 
 Loads and publishes point cloud data from files (PCD, PLY, etc.).
 
@@ -110,7 +101,7 @@ Loads and publishes point cloud data from files (PCD, PLY, etc.).
 - `publish_normals` (bool): Whether to publish normal vectors (default: false)
 - `publish_colors` (bool): Whether to publish color information (default: true)
 
-### 3. `get_lidar_info_from_point_cloud`
+### `get_lidar_info_from_point_cloud`
 
 Analyzes point cloud data to extract LiDAR angular information.
 
@@ -123,7 +114,7 @@ Analyzes point cloud data to extract LiDAR angular information.
 
 ## Usage Examples
 
-### 1. Gazebo Room 2D Simulation
+### Gazebo Room 2D Simulation
 
 ![](assets/gazebo_room_2d.png)
 
@@ -142,7 +133,7 @@ This will start:
 - Static transform publishers for coordinate frames
 - RViz with pre-configured visualization
 
-### 2. Cow and Lady Dataset Visualization
+### Cow and Lady Dataset Visualization
 
 ![](assets/cow_and_lady.png)
 
@@ -164,7 +155,7 @@ To run with ROS2, you need to first convert the bag file to a ROS2 compatible fo
 [tool](https://github.com/ExistentialRobotics/erl_common_ros/scripts/convert_rosbag_1to2.bash) for
 this conversion. An alternative tool is `rosbags-convert` from [rosbags](https://github.com/rpng/rosbags).
 
-### 3. Point Cloud Publishing
+### Point Cloud Publishing
 
 To publish a point cloud from a file:
 
@@ -176,22 +167,8 @@ rosrun erl_geometry_ros point_cloud_node _point_cloud_file:=/path/to/your/pointc
 ros2 run erl_geometry_ros point_cloud_node --ros-args -p point_cloud_file:=/path/to/your/pointcloud.pcd -p frame_id:=map
 ```
 
-## Launch Files
-
-### ROS1 Launch Files
-- `gazebo_room_2d.launch`: Complete 2D simulation setup with visualization
-- `cow_and_lady.launch`: Cow and Lady dataset visualization setup
-
-### ROS2 Launch Files
-- `gazebo_room_2d_launch.py`: ROS2 version of the 2D simulation setup
-- `cow_and_lady_launch.py`: ROS2 version of the Cow and Lady dataset setup
-
 ## RViz Configurations
 
 Pre-configured RViz files are available in the `rviz/` directory for ROS1 or `rviz2/` for ROS2:
 - `gazebo_room_2d.rviz`: Configuration for 2D simulation visualization
 - `cow_and_lady.rviz`: Configuration for Cow and Lady dataset visualization
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -43,9 +43,15 @@ public:
         float azimuth_max = -M_PI;
         float elevation_min = M_PI / 2;
         float elevation_max = -M_PI / 2;
+        float dist_min = std::numeric_limits<float>::max();
+        float dist_max = -std::numeric_limits<float>::min();
         for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z) {
             float azimuth, elevation;
             Eigen::Vector3f direction(*iter_x, *iter_y, *iter_z);
+            float dist = direction.norm();
+            dist_min = std::min(dist_min, dist);
+            dist_max = std::max(dist_max, dist);
+            direction /= dist;
             erl::common::DirectionToAzimuthElevation<float>(direction, azimuth, elevation);
             azimuth_min = std::min(azimuth_min, azimuth);
             azimuth_max = std::max(azimuth_max, azimuth);
@@ -54,11 +60,14 @@ public:
         }
         RCLCPP_INFO(
             this->get_logger(),
-            "Azimuth range: [%f, %f], Elevation range: [%f, %f], Point cloud width: %d, height: %d",
+            "Azimuth range: [%f, %f], Elevation range: [%f, %f], Distance range: [%f, %f], Point "
+            "cloud width: %d, height: %d",
             azimuth_min,
             azimuth_max,
             elevation_min,
             elevation_max,
+            dist_min,
+            dist_max,
             msg->width,
             msg->height);
     }
