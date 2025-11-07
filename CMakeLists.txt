@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(erl_geometry_ros #
-        LANGUAGES CXX C #
-        VERSION 0.2.0 #
+project(erl_geometry_ros
+        LANGUAGES CXX C
+        VERSION 0.3.0
         DESCRIPTION "erl_geometry_ros is a ROS package of erl_geometry.")
 message(STATUS "Configuring ${PROJECT_NAME} ${PROJECT_VERSION}")
 
