@@ -20,7 +20,7 @@ def generate_launch_description():
                 "data_folder": PathJoinSubstitution([FindPackageShare("erl_geometry"), "data", "gazebo"]),
                 "laser_frame": "front_laser",
                 "map_frame": "map",
-                "topic_name": "scan",
+                "laser_topic.path": "scan",
                 "publish_rate": 100.0,
             }
         ],

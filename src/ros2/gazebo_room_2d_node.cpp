@@ -1,3 +1,4 @@
+#include "erl_common/ros2_topic_params.hpp"
 #include "erl_geometry/gazebo_room_2d.hpp"
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -10,7 +11,65 @@
 #include <chrono>
 #include <memory>
 
+using namespace erl::common;
+using namespace erl::common::ros_params;
 using namespace erl::geometry;
+
+static rclcpp::Node *g_curr_node = nullptr;
+
+struct Options : public Yamlable<Options> {
+    std::string data_folder = "data/gazebo";
+    std::string laser_frame = "front_laser";
+    std::string map_frame = "map";
+    Ros2TopicParams laser_topic{"scan"};
+    Ros2TopicParams pose_topic{"pose"};
+    Ros2TopicParams path_topic{"path"};
+    double publish_rate = 10.0;  // Hz
+
+    ERL_REFLECT_SCHEMA(
+        Options,
+        ERL_REFLECT_MEMBER(Options, data_folder),
+        ERL_REFLECT_MEMBER(Options, laser_frame),
+        ERL_REFLECT_MEMBER(Options, map_frame),
+        ERL_REFLECT_MEMBER(Options, laser_topic),
+        ERL_REFLECT_MEMBER(Options, pose_topic),
+        ERL_REFLECT_MEMBER(Options, path_topic),
+        ERL_REFLECT_MEMBER(Options, publish_rate));
+
+    bool
+    PostDeserialization() override {
+        auto logger = g_curr_node->get_logger();
+        if (data_folder.empty()) {
+            RCLCPP_ERROR(logger, "data_folder is empty.");
+            return false;
+        }
+        if (laser_frame.empty()) {
+            RCLCPP_ERROR(logger, "laser_frame is empty.");
+            return false;
+        }
+        if (map_frame.empty()) {
+            RCLCPP_ERROR(logger, "map_frame is empty.");
+            return false;
+        }
+        if (laser_topic.path.empty()) {
+            RCLCPP_ERROR(logger, "laser_topic is empty.");
+            return false;
+        }
+        if (pose_topic.path.empty()) {
+            RCLCPP_ERROR(logger, "pose_topic is empty.");
+            return false;
+        }
+        if (path_topic.path.empty()) {
+            RCLCPP_ERROR(logger, "path_topic is empty.");
+            return false;
+        }
+        if (publish_rate <= 0.0) {
+            RCLCPP_ERROR(logger, "publish_rate must be positive, got %f", publish_rate);
+            return false;
+        }
+        return true;
+    }
+};
 
 class GazeboRoom2dNode : public rclcpp::Node {
 
@@ -37,53 +96,44 @@ public:
             GazeboRoom2D::kMapMax[0],
             GazeboRoom2D::kMapMax[1]);
 
-        std::string data_folder = "data/gazebo";
-        std::string laser_frame = "front_laser";
-        std::string map_frame = "map";
-        std::string laser_topic_name = "scan";
-        std::string pose_topic_name = "pose";
-        std::string path_topic_name = "path";
-        double publish_rate = 10.0;  // Hz
+        g_curr_node = this;
 
-        // Declare parameters with default values
-        this->declare_parameter("data_folder", data_folder);
-        this->declare_parameter("laser_frame", laser_frame);
-        this->declare_parameter("map_frame", map_frame);
-        this->declare_parameter("laser_topic_name", laser_topic_name);
-        this->declare_parameter("pose_topic_name", pose_topic_name);
-        this->declare_parameter("path_topic_name", path_topic_name);
-        this->declare_parameter("publish_rate", publish_rate);
-
-        // Get parameters
-        data_folder = this->get_parameter("data_folder").as_string();
-        laser_frame = this->get_parameter("laser_frame").as_string();
-        map_frame = this->get_parameter("map_frame").as_string();
-        laser_topic_name = this->get_parameter("laser_topic_name").as_string();
-        pose_topic_name = this->get_parameter("pose_topic_name").as_string();
-        path_topic_name = this->get_parameter("path_topic_name").as_string();
-        publish_rate = this->get_parameter("publish_rate").as_double();
+        // Load options from parameters
+        Options cfg;
+        if (!cfg.LoadFromRos2(this, "")) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to load parameters.");
+            rclcpp::shutdown();
+            return;
+        }
+        RCLCPP_INFO(this->get_logger(), "Loaded parameters:\n%s", cfg.AsYamlString().c_str());
 
         // Load data
-        m_data_loader_ = std::make_unique<GazeboRoom2D::TrainDataLoader>(data_folder);
+        m_data_loader_ = std::make_unique<GazeboRoom2D::TrainDataLoader>(cfg.data_folder);
 
         // Initialize message headers
-        m_msg_scan_.header.frame_id = laser_frame;      // reference frame for the scan
-        m_msg_pose_.header.frame_id = map_frame;        // reference frame for the pose
-        m_msg_transform_.header.frame_id = map_frame;   // parent frame for the transform
-        m_msg_transform_.child_frame_id = laser_frame;  // child frame for the transform
-        m_msg_path_.header.frame_id = map_frame;        // reference frame for the path
+        m_msg_scan_.header.frame_id = cfg.laser_frame;      // reference frame for the scan
+        m_msg_pose_.header.frame_id = cfg.map_frame;        // reference frame for the pose
+        m_msg_transform_.header.frame_id = cfg.map_frame;   // parent frame for the transform
+        m_msg_transform_.child_frame_id = cfg.laser_frame;  // child frame for the transform
+        m_msg_path_.header.frame_id = cfg.map_frame;        // reference frame for the path
         m_msg_path_.poses.reserve(m_data_loader_->size());
 
         // Initialize publishers
-        m_pub_scan_ = this->create_publisher<sensor_msgs::msg::LaserScan>(laser_topic_name, 1);
-        m_pub_pose_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(pose_topic_name, 1);
-        m_pub_path_ = this->create_publisher<nav_msgs::msg::Path>(path_topic_name, 1);
+        m_pub_scan_ = this->create_publisher<sensor_msgs::msg::LaserScan>(
+            cfg.laser_topic.path,
+            cfg.laser_topic.GetQoS());
+        m_pub_pose_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+            cfg.pose_topic.path,
+            cfg.pose_topic.GetQoS());
+        m_pub_path_ = this->create_publisher<nav_msgs::msg::Path>(
+            cfg.path_topic.path,
+            cfg.path_topic.GetQoS());
 
         // Initialize transform broadcaster
         m_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
         // Create timer
-        auto timer_period = std::chrono::duration<double>(1.0 / publish_rate);
+        auto timer_period = std::chrono::duration<double>(1.0 / cfg.publish_rate);
         m_timer_ = this->create_wall_timer(
             timer_period,
             std::bind(&GazeboRoom2dNode::CallbackTimer, this));

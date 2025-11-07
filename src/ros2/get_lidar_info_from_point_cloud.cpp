@@ -1,8 +1,29 @@
 #include "erl_common/angle_utils.hpp"
+#include "erl_common/ros2_topic_params.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+
+using namespace erl::common;
+using namespace erl::common::ros_params;
+
+static rclcpp::Node *g_curr_node = nullptr;
+
+struct Options : public Yamlable<Options> {
+    Ros2TopicParams point_cloud_topic{""};
+
+    ERL_REFLECT_SCHEMA(Options, ERL_REFLECT_MEMBER(Options, point_cloud_topic));
+
+    bool
+    PostDeserialization() override {
+        if (point_cloud_topic.path.empty()) {
+            RCLCPP_ERROR(g_curr_node->get_logger(), "Point cloud topic is not specified.");
+            return false;
+        }
+        return true;
+    }
+};
 
 class Node : public rclcpp::Node {
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
@@ -11,25 +32,29 @@ public:
     Node()
         : rclcpp::Node("get_lidar_info_from_point_cloud") {
         // Initialize the node and set up the subscriber
-        RCLCPP_INFO(this->get_logger(), "Node initialized.");
-        std::string point_cloud_topic =
-            this->declare_parameter<std::string>("point_cloud_topic", "");
-        if (point_cloud_topic.empty()) {
-            RCLCPP_ERROR(this->get_logger(), "Point cloud topic is not specified.");
+        g_curr_node = this;
+        auto logger = this->get_logger();
+        Options cfg;
+        if (!cfg.LoadFromRos2(this, "")) {
+            RCLCPP_ERROR(logger, "Failed to load parameters.");
+            rclcpp::shutdown();
             return;
         }
+        RCLCPP_INFO(logger, "Loaded parameters:\n%s", cfg.AsYamlString().c_str());
+
         subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-            point_cloud_topic,
-            10,
+            cfg.point_cloud_topic.path,
+            cfg.point_cloud_topic.GetQoS(),
             std::bind(&Node::Callback, this, std::placeholders::_1));
         RCLCPP_INFO(
-            this->get_logger(),
+            logger,
             "Subscribed to point cloud topic: %s",
-            point_cloud_topic.c_str());
+            cfg.point_cloud_topic.path.c_str());
+        RCLCPP_INFO(logger, "Node initialized.");
     }
 
     void
-    Callback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& msg) {
+    Callback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg) {
         // Process the incoming point cloud message
         RCLCPP_INFO(
             this->get_logger(),
@@ -74,7 +99,7 @@ public:
 };
 
 int
-main(int argc, char** argv) {
+main(int argc, char **argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<Node>();
     rclcpp::spin(node);

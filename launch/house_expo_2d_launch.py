@@ -34,8 +34,6 @@ def generate_launch_description():
                         "init_x": 6.61,
                         "init_y": 6.46,
                         "init_yaw": 0.0,
-                        "path_topic": "path",
-                        "loaded_path_topic_durability": "transient_local",
                     }
                 ],
             ),

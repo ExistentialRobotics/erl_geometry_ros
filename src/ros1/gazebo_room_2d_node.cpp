@@ -1,3 +1,4 @@
+#include "erl_common/yaml.hpp"
 #include "erl_geometry/gazebo_room_2d.hpp"
 
 #include <geometry_msgs/PoseStamped.h>
@@ -7,7 +8,61 @@
 #include <sensor_msgs/LaserScan.h>
 #include <tf2_ros/transform_broadcaster.h>
 
+using namespace erl::common;
 using namespace erl::geometry;
+
+struct Options : public Yamlable<Options> {
+    std::string data_folder = "data/gazebo";
+    std::string laser_frame = "front_laser";
+    std::string map_frame = "map";
+    std::string laser_topic = "scan";
+    std::string pose_topic = "pose";
+    std::string path_topic = "path";
+    double publish_rate = 10.0;  // Hz
+
+    ERL_REFLECT_SCHEMA(
+        Options,
+        ERL_REFLECT_MEMBER(Options, data_folder),
+        ERL_REFLECT_MEMBER(Options, laser_frame),
+        ERL_REFLECT_MEMBER(Options, map_frame),
+        ERL_REFLECT_MEMBER(Options, laser_topic),
+        ERL_REFLECT_MEMBER(Options, pose_topic),
+        ERL_REFLECT_MEMBER(Options, path_topic),
+        ERL_REFLECT_MEMBER(Options, publish_rate));
+
+    bool
+    PostDeserialization() override {
+        if (data_folder.empty()) {
+            ROS_ERROR("data_folder is empty.");
+            return false;
+        }
+        if (map_frame.empty()) {
+            ROS_ERROR("map_frame is empty.");
+            return false;
+        }
+        if (laser_frame.empty()) {
+            ROS_ERROR("laser_frame is empty.");
+            return false;
+        }
+        if (laser_topic.empty()) {
+            ROS_ERROR("laser_topic is empty.");
+            return false;
+        }
+        if (pose_topic.empty()) {
+            ROS_ERROR("pose_topic is empty.");
+            return false;
+        }
+        if (path_topic.empty()) {
+            ROS_ERROR("path_topic is empty.");
+            return false;
+        }
+        if (publish_rate <= 0.0) {
+            ROS_ERROR("publish_rate must be positive, got %f", publish_rate);
+            return false;
+        }
+        return true;
+    }
+};
 
 class GazeboRoom2dNode {
 
@@ -34,42 +89,35 @@ public:
             GazeboRoom2D::kMapMax[0],
             GazeboRoom2D::kMapMax[1]);
 
-        std::string data_folder = "data/gazebo";
-        std::string laser_frame = "front_laser";
-        std::string map_frame = "map";
-        std::string laser_topic_name = "scan";
-        std::string pose_topic_name = "pose";
-        std::string path_topic_name = "path";
-        double publish_rate = 10.0;  // Hz
-
-        // Initialize the settings
-        m_nh_.param("data_folder", data_folder, data_folder);
-        m_nh_.param("laser_frame", laser_frame, laser_frame);
-        m_nh_.param("map_frame", map_frame, map_frame);
-        m_nh_.param("laser_topic_name", laser_topic_name, laser_topic_name);
-        m_nh_.param("pose_topic_name", pose_topic_name, pose_topic_name);
-        m_nh_.param("path_topic_name", path_topic_name, path_topic_name);
-        m_nh_.param("publish_rate", publish_rate, publish_rate);
-        m_msg_scan_.header.frame_id = laser_frame;      // reference frame for the scan
-        m_msg_pose_.header.frame_id = map_frame;        // reference frame for the pose
-        m_msg_transform_.header.frame_id = map_frame;   // parent frame for the transform
-        m_msg_transform_.child_frame_id = laser_frame;  // child frame for the transform
-        m_msg_path_.header.frame_id = map_frame;        // reference frame for the path
-
-        // Load data
-        if (!std::filesystem::exists(data_folder)) {
-            ROS_FATAL("Data folder '%s' does not exist.", data_folder.c_str());
+        // Load options from parameters
+        Options cfg;
+        if (!cfg.LoadFromRos1(m_nh_, "")) {
+            ROS_ERROR("Failed to load parameters.");
             ros::shutdown();
             return;
         }
-        m_data_loader_ = std::make_unique<GazeboRoom2D::TrainDataLoader>(data_folder);
+        ROS_INFO("Loaded parameters:\n%s", cfg.AsYamlString().c_str());
+
+        m_msg_scan_.header.frame_id = cfg.laser_frame;      // reference frame for the scan
+        m_msg_pose_.header.frame_id = cfg.map_frame;        // reference frame for the pose
+        m_msg_transform_.header.frame_id = cfg.map_frame;   // parent frame for the transform
+        m_msg_transform_.child_frame_id = cfg.laser_frame;  // child frame for the transform
+        m_msg_path_.header.frame_id = cfg.map_frame;        // reference frame for the path
+
+        // Load data
+        if (!std::filesystem::exists(cfg.data_folder)) {
+            ROS_FATAL("Data folder '%s' does not exist.", cfg.data_folder.c_str());
+            ros::shutdown();
+            return;
+        }
+        m_data_loader_ = std::make_unique<GazeboRoom2D::TrainDataLoader>(cfg.data_folder);
         m_msg_path_.poses.reserve(m_data_loader_->size());
         // Initialize the node
-        m_pub_scan_ = m_nh_.advertise<sensor_msgs::LaserScan>(laser_topic_name, 1);
-        m_pub_pose_ = m_nh_.advertise<geometry_msgs::PoseStamped>(pose_topic_name, 1);
-        m_pub_path_ = m_nh_.advertise<nav_msgs::Path>(path_topic_name, 1);
+        m_pub_scan_ = m_nh_.advertise<sensor_msgs::LaserScan>(cfg.laser_topic, 1);
+        m_pub_pose_ = m_nh_.advertise<geometry_msgs::PoseStamped>(cfg.pose_topic, 1);
+        m_pub_path_ = m_nh_.advertise<nav_msgs::Path>(cfg.path_topic, 1, true);
         m_timer_ = m_nh_.createTimer(
-            ros::Duration(1.0 / publish_rate),
+            ros::Duration(1.0 / cfg.publish_rate),
             &GazeboRoom2dNode::CallbackTimer,
             this);
         ROS_INFO("Gazebo Room 2D Node started.");

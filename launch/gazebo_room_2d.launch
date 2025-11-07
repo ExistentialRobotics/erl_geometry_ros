@@ -3,7 +3,7 @@
         <param name="data_folder" value="$(find erl_geometry)/data/gazebo" />
         <param name="laser_frame" value="front_laser" />
         <param name="map_frame" value="map" />
-        <param name="topic_name" value="scan" />
+        <param name="laser_topic" value="scan" />
         <param name="publish_rate" value="100.0" />
     </node>
     <node pkg="tf2_ros" type="static_transform_publisher" name="map_odom_transformer" args="0 0 0 0 0 0 1 map odom" />

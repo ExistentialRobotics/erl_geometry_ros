@@ -5,7 +5,7 @@
 #include <sensor_msgs/point_cloud2_iterator.h>
 
 void
-Callback(const sensor_msgs::PointCloud2ConstPtr& msg) {
+Callback(const sensor_msgs::PointCloud2ConstPtr &msg) {
     // Process the incoming point cloud message
     ROS_INFO("Received point cloud with %d points", msg->width * msg->height);
     // Here you can add code to extract information from the point cloud
@@ -45,7 +45,7 @@ Callback(const sensor_msgs::PointCloud2ConstPtr& msg) {
 }
 
 int
-main(int argc, char** argv) {
+main(int argc, char **argv) {
     ros::init(argc, argv, "get_lidar_info_from_point_cloud");
     ros::NodeHandle nh("~");
 
