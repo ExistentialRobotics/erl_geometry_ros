@@ -331,26 +331,6 @@ public:
 
         PublishScan(this->now(), rotation, translation);
     }
-
-    static rclcpp::QoS
-    GetQoS(const std::string &reliability, const std::string &durability) {
-        rclcpp::QoS qos(rclcpp::KeepLast(5));
-        if (reliability == "reliable") {
-            qos.reliable();
-        } else if (reliability == "best_effort") {
-            qos.best_effort();
-        } else {
-            throw std::runtime_error("Invalid reliability: " + reliability);
-        }
-        if (durability == "volatile") {
-            qos.durability_volatile();
-        } else if (durability == "transient_local") {
-            qos.transient_local();
-        } else {
-            throw std::runtime_error("Invalid durability: " + durability);
-        }
-        return qos;
-    }
 };
 
 int
