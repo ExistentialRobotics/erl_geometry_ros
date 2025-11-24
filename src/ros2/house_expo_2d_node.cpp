@@ -175,7 +175,7 @@ public:
         m_cur_pose_.transform.rotation.w = std::cos(m_cfg_.init_yaw / 2);
 
         if (m_cfg_.publish_pose) {
-            m_pose_timer_ = this->create_timer(
+            m_pose_timer_ = this->create_wall_timer(
                 std::chrono::duration<double>(1.0 / m_cfg_.pose_publish_rate),
                 [this]() {
                     std::lock_guard<std::mutex> lock(m_pose_mutex_);
