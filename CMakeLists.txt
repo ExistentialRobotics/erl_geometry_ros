@@ -12,9 +12,9 @@ endif ()
 
 erl_project_setup(ERL_PACKAGES erl_geometry)
 erl_setup_ros(
-    CATKIN_COMPONENTS geometry_msgs nav_msgs sensor_msgs tf2_ros #
-    CATKIN_DEPENDS geometry_msgs nav_msgs sensor_msgs tf2_ros #
-    ROS2_COMPONENTS geometry_msgs nav_msgs sensor_msgs tf2_ros)
+    CATKIN_COMPONENTS geometry_msgs nav_msgs sensor_msgs tf2_ros erl_geometry_msgs #
+    CATKIN_DEPENDS geometry_msgs nav_msgs sensor_msgs tf2_ros erl_geometry_msgs #
+    ROS2_COMPONENTS geometry_msgs nav_msgs sensor_msgs tf2_ros erl_geometry_msgs)
 erl_add_ros_src()
 erl_install(EXECUTABLES ${${PROJECT_NAME}_COLLECTED_EXECUTABLES})
 erl_mark_project_found()

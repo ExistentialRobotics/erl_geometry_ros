@@ -27,6 +27,7 @@
     <depend>erl_common</depend>
     <depend>erl_covariance</depend>
     <depend>erl_geometry</depend>
+    <depend>erl_geometry_msgs</depend>
 
     <export>
         <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
