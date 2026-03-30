@@ -226,7 +226,7 @@ private:
         for (long i = 1; i < polyline.cols(); ++i) {
             length += (polyline.col(i) - polyline.col(i - 1)).norm();
         }
-        return length * scale;
+        return length / scale;  // convert back to original scale for message
     }
 
     template<typename Dtype>
@@ -241,7 +241,7 @@ private:
             auto v0 = vertices[face[0]].template cast<double>();
             auto v1 = vertices[face[1]].template cast<double>();
             auto v2 = vertices[face[2]].template cast<double>();
-            area += 0.5 * (v1 - v0).cross(v2 - v0).norm() * scale2;
+            area += 0.5 * (v1 - v0).cross(v2 - v0).norm() / scale2;
         }
         return area;
     }
