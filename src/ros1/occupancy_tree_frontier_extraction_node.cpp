@@ -21,6 +21,7 @@ struct FrontierExtractionNodeConfig : public Yamlable<FrontierExtractionNodeConf
     Aabb3Dd aabb = {};
     bool use_slice = false;
     std::vector<double> z_slices = {0.0};
+    double min_frontier_size = 0.1;  // length for 2D frontier, area for 3D frontier
 
     ERL_REFLECT_SCHEMA(
         FrontierExtractionNodeConfig,
@@ -29,7 +30,8 @@ struct FrontierExtractionNodeConfig : public Yamlable<FrontierExtractionNodeConf
         ERL_REFLECT_MEMBER(FrontierExtractionNodeConfig, use_aabb),
         ERL_REFLECT_MEMBER(FrontierExtractionNodeConfig, aabb),
         ERL_REFLECT_MEMBER(FrontierExtractionNodeConfig, use_slice),
-        ERL_REFLECT_MEMBER(FrontierExtractionNodeConfig, z_slices));
+        ERL_REFLECT_MEMBER(FrontierExtractionNodeConfig, z_slices),
+        ERL_REFLECT_MEMBER(FrontierExtractionNodeConfig, min_frontier_size));
 
     bool
     PostDeserialization() override {
@@ -239,6 +241,11 @@ private:
         double scale,
         const std_msgs::Header &header) {
 
+        if (frontiers.empty()) {
+            ROS_WARN("No frontiers extracted");
+            return;
+        }
+
         erl_geometry_msgs::FrontierArray msg;
         msg.header = header;
         msg.dim = 2;
@@ -250,6 +257,7 @@ private:
             erl_geometry_msgs::Frontier f;
             f.id = id++;
             f.score = PolylineLength(polyline, scale);
+            if (f.score < m_config_.min_frontier_size) { continue; }
             f.vertices.resize(polyline.cols());
             for (long i = 0; i < polyline.cols(); ++i) {
                 // convert back to original scale for message
@@ -278,6 +286,11 @@ private:
         double scale,
         const std_msgs::Header &header) {
 
+        if (frontiers.empty()) {
+            ROS_WARN("No frontiers extracted");
+            return;
+        }
+
         erl_geometry_msgs::FrontierArray msg;
         msg.header = header;
         msg.dim = 3;
@@ -289,6 +302,7 @@ private:
             erl_geometry_msgs::Frontier f;
             f.id = id++;
             f.score = MeshArea(mesh.vertices, mesh.faces, scale);
+            if (f.score < m_config_.min_frontier_size) { continue; }
             f.vertices.resize(mesh.vertices.size());
             for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
                 // convert back to original scale for message
