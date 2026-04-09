@@ -2,6 +2,8 @@
 #include "erl_geometry/aabb.hpp"
 #include "erl_geometry/abstract_occupancy_octree.hpp"
 #include "erl_geometry/abstract_occupancy_quadtree.hpp"
+#include "erl_geometry/colored_occupancy_octree.hpp"
+#include "erl_geometry/colored_occupancy_quadtree.hpp"
 #include "erl_geometry/occupancy_octree_base.hpp"
 #include "erl_geometry/occupancy_quadtree_base.hpp"
 #include "erl_geometry_msgs/Frontier.h"
@@ -65,8 +67,8 @@ public:
         }
         ROS_INFO("Loaded parameters:\n%s", m_config_.AsYamlString().c_str());
 
-        m_frontier_pub_ = nh.advertise<erl_geometry_msgs::FrontierArray>(
-            m_config_.frontier_topic, 10);
+        m_frontier_pub_ =
+            nh.advertise<erl_geometry_msgs::FrontierArray>(m_config_.frontier_topic, 10);
 
         m_tree_sub_ = nh.subscribe<erl_geometry_msgs::OccupancyTreeMsg>(
             m_config_.tree_topic,
@@ -104,29 +106,14 @@ private:
 
     // -- Quadtree (2D) --
 
-    template<typename Dtype>
-    void
-    HandleQuadtree(const erl_geometry_msgs::OccupancyTreeMsg::ConstPtr &msg) {
-        auto tree_setting = std::make_shared<OccupancyQuadtreeBaseSetting>();
-        auto abstract_tree = AbstractQuadtree<Dtype>::CreateTree(msg->tree_type, tree_setting);
-        auto tree = std::dynamic_pointer_cast<AbstractOccupancyQuadtree<Dtype>>(abstract_tree);
-        if (tree == nullptr) {
-            ROS_WARN("Failed to create quadtree: %s", msg->tree_type.c_str());
-            return;
-        }
-        if (!LoadFromOccupancyTreeMsg<Dtype>(*msg, tree)) {
-            ROS_WARN("Failed to deserialize quadtree");
-            return;
-        }
-
-        // downcast to access ExtractFrontiers
-        using QuadtreeBase =
-            OccupancyQuadtreeBase<Dtype, OccupancyQuadtreeNode, OccupancyQuadtreeBaseSetting>;
+    template<typename Dtype, typename NodeType>
+    bool
+    TryExtractQuadtreeFrontiers(
+        const std::shared_ptr<AbstractOccupancyQuadtree<Dtype>> &tree,
+        const erl_geometry_msgs::OccupancyTreeMsg::ConstPtr &msg) {
+        using QuadtreeBase = OccupancyQuadtreeBase<Dtype, NodeType, OccupancyQuadtreeBaseSetting>;
         auto concrete = std::dynamic_pointer_cast<QuadtreeBase>(tree);
-        if (concrete == nullptr) {
-            ROS_WARN("Quadtree type does not support frontier extraction");
-            return;
-        }
+        if (concrete == nullptr) { return false; }
 
         const double scale = msg->scale;
         std::vector<typename QuadtreeBase::Frontier> frontiers;
@@ -143,32 +130,40 @@ private:
         }
 
         PublishPolylineFrontiers(frontiers, scale, msg->header);
+        return true;
+    }
+
+    template<typename Dtype>
+    void
+    HandleQuadtree(const erl_geometry_msgs::OccupancyTreeMsg::ConstPtr &msg) {
+        auto tree_setting = std::make_shared<OccupancyQuadtreeBaseSetting>();
+        auto abstract_tree = AbstractQuadtree<Dtype>::CreateTree(msg->tree_type, tree_setting);
+        auto tree = std::dynamic_pointer_cast<AbstractOccupancyQuadtree<Dtype>>(abstract_tree);
+        if (tree == nullptr) {
+            ROS_WARN("Failed to create quadtree: %s", msg->tree_type.c_str());
+            return;
+        }
+        if (!LoadFromOccupancyTreeMsg<Dtype>(*msg, tree)) {
+            ROS_WARN("Failed to deserialize quadtree");
+            return;
+        }
+
+        if (!TryExtractQuadtreeFrontiers<Dtype, OccupancyQuadtreeNode>(tree, msg) &&
+            !TryExtractQuadtreeFrontiers<Dtype, ColoredOccupancyQuadtreeNode>(tree, msg)) {
+            ROS_WARN("Quadtree type does not support frontier extraction");
+        }
     }
 
     // -- Octree (3D) --
 
-    template<typename Dtype>
-    void
-    HandleOctree(const erl_geometry_msgs::OccupancyTreeMsg::ConstPtr &msg) {
-        auto tree_setting = std::make_shared<OccupancyOctreeBaseSetting>();
-        auto abstract_tree = AbstractOctree<Dtype>::CreateTree(msg->tree_type, tree_setting);
-        auto tree = std::dynamic_pointer_cast<AbstractOccupancyOctree<Dtype>>(abstract_tree);
-        if (tree == nullptr) {
-            ROS_WARN("Failed to create octree: %s", msg->tree_type.c_str());
-            return;
-        }
-        if (!LoadFromOccupancyTreeMsg<Dtype>(*msg, tree)) {
-            ROS_WARN("Failed to deserialize octree");
-            return;
-        }
-
-        using OctreeBase =
-            OccupancyOctreeBase<Dtype, OccupancyOctreeNode, OccupancyOctreeBaseSetting>;
+    template<typename Dtype, typename NodeType>
+    bool
+    TryExtractOctreeFrontiers(
+        const std::shared_ptr<AbstractOccupancyOctree<Dtype>> &tree,
+        const erl_geometry_msgs::OccupancyTreeMsg::ConstPtr &msg) {
+        using OctreeBase = OccupancyOctreeBase<Dtype, NodeType, OccupancyOctreeBaseSetting>;
         auto concrete = std::dynamic_pointer_cast<OctreeBase>(tree);
-        if (concrete == nullptr) {
-            ROS_WARN("Octree type does not support frontier extraction");
-            return;
-        }
+        if (concrete == nullptr) { return false; }
 
         const double scale = msg->scale;
 
@@ -199,7 +194,29 @@ private:
             } else {
                 frontiers = concrete->ExtractFrontiers();
             }
-            PublishMeshFrontiers<Dtype>(frontiers, scale, msg->header);
+            PublishMeshFrontiers<Dtype, NodeType>(frontiers, scale, msg->header);
+        }
+        return true;
+    }
+
+    template<typename Dtype>
+    void
+    HandleOctree(const erl_geometry_msgs::OccupancyTreeMsg::ConstPtr &msg) {
+        auto tree_setting = std::make_shared<OccupancyOctreeBaseSetting>();
+        auto abstract_tree = AbstractOctree<Dtype>::CreateTree(msg->tree_type, tree_setting);
+        auto tree = std::dynamic_pointer_cast<AbstractOccupancyOctree<Dtype>>(abstract_tree);
+        if (tree == nullptr) {
+            ROS_WARN("Failed to create octree: %s", msg->tree_type.c_str());
+            return;
+        }
+        if (!LoadFromOccupancyTreeMsg<Dtype>(*msg, tree)) {
+            ROS_WARN("Failed to deserialize octree");
+            return;
+        }
+
+        if (!TryExtractOctreeFrontiers<Dtype, OccupancyOctreeNode>(tree, msg) &&
+            !TryExtractOctreeFrontiers<Dtype, ColoredOccupancyOctreeNode>(tree, msg)) {
+            ROS_WARN("Octree type does not support frontier extraction");
         }
     }
 
@@ -277,12 +294,12 @@ private:
         ROS_DEBUG("Published %zu 2D frontiers", frontiers.size());
     }
 
-    template<typename Dtype>
+    template<typename Dtype, typename NodeType>
     void
     PublishMeshFrontiers(
         const std::vector<
-            typename OccupancyOctreeBase<Dtype, OccupancyOctreeNode, OccupancyOctreeBaseSetting>::
-                Frontier> &frontiers,
+            typename OccupancyOctreeBase<Dtype, NodeType, OccupancyOctreeBaseSetting>::Frontier>
+            &frontiers,
         double scale,
         const std_msgs::Header &header) {
 
