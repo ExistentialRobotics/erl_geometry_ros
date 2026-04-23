@@ -275,7 +275,11 @@ private:
         const std_msgs::msg::Header &header) {
 
         if (frontiers.empty()) {
-            RCLCPP_WARN(this->get_logger(), "No frontiers extracted");
+            RCLCPP_WARN_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                10000.0,
+                "No frontiers extracted");
             return;
         }
 
@@ -320,7 +324,11 @@ private:
         const std_msgs::msg::Header &header) {
 
         if (frontiers.empty()) {
-            RCLCPP_WARN(this->get_logger(), "No frontiers extracted");
+            RCLCPP_WARN_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                10000.0,
+                "No frontiers extracted");
             return;
         }
 
